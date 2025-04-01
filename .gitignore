@@ -1,3 +1,2 @@
-.vscode/settings.json
-src/build/main
-.vscode/tasks.json
+.vscode/*
+build/*
