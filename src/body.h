@@ -57,8 +57,7 @@ struct Body
         }
         return false;
     }
-
-    
+  
     void update(std::vector<Body> &bodies, float deltaT)
     {
         // gravity forces only for now
@@ -123,4 +122,21 @@ void resolveCollision(Body &b1, Body &b2)
     deltaPosition = b2.position - b1.position;
     scaledNoraml = (deltaPosition)/static_cast<float>(pow(magnitude2d(deltaPosition), 2));
     b2.velocity -= collisionCoefficient*(2*b1.mass/(b1.mass + b2.mass))*dot(b2.velocity - preB1Velocity, deltaPosition)*(scaledNoraml);
+}
+
+Body* getClosestBody(sf::Vector2f &position, std::vector<Body> &bodies)
+{
+    float minDist{MAXFLOAT};
+    Body* closest{nullptr};
+    for (auto &body : bodies)
+    {
+        sf::Vector2f deltaPosition = body.position - position;
+        float distance = std::hypot(deltaPosition.x, deltaPosition.y);
+        if (distance < minDist && distance < body.radius)
+        {
+            minDist = distance;
+            closest = &body;
+        }
+    }
+    return closest;
 }

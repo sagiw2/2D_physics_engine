@@ -72,7 +72,6 @@ sf::VertexArray createArrow(const sf::Vector2f& base, const sf::Vector2f& tip, f
     return arrow;
 }
 
-
 int main()
 {
     sf::RenderWindow window(sf::VideoMode(800, 600), "2D Planetary Physics");
@@ -108,19 +107,32 @@ int main()
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) view.move(0, 10);
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) view.move(-10, 0);
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) view.move(10, 0);
-            if(sf::Mouse::isButtonPressed(sf::Mouse::Button::Left) && gameIsRunning)
+            if(event.type == sf::Event::MouseButtonPressed &&
+                event.mouseButton.button == sf::Mouse::Left)
             {
-                gameIsRunning = false;
-                Body newBody(10, 10, window.mapPixelToCoords(sf::Mouse::getPosition(window)));
-                arrow = createArrow(newBody.position, window.mapPixelToCoords(sf::Mouse::getPosition(window)));
-                addShapesAndBodies(shapes, bodies, {newBody});
+                if (gameIsRunning)
+                {
+                    gameIsRunning = false;
+                    Body newBody(10, 10, window.mapPixelToCoords(sf::Mouse::getPosition(window)));
+                    arrow = createArrow(newBody.position, window.mapPixelToCoords(sf::Mouse::getPosition(window)));
+                    addShapesAndBodies(shapes, bodies, {newBody});
+                }
+                else
+                {
+                    gameIsRunning = true;
+                    bodies.back().velocity = sf::Vector2f{arrow[1].position - arrow[0].position};
+                    arrow.clear();
+                    clock.restart();
+                }
             }
-            if(sf::Mouse::isButtonPressed(sf::Mouse::Button::Right))
+            if(event.type == sf::Event::MouseButtonPressed &&
+                event.mouseButton.button == sf::Mouse::Right)
             {
-                gameIsRunning = true;
-                bodies.back().velocity = sf::Vector2f{arrow[1].position - arrow[0].position};
-                arrow.clear();
-                clock.restart();
+                sf::Vector2f mousePosition = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+                if (auto closestBody = getClosestBody(mousePosition, bodies))
+                {
+                    std::cout << *closestBody << std::endl;
+                }
             }
         }
 
