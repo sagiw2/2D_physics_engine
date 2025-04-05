@@ -51,10 +51,8 @@ struct Body
     bool collisionDetection(Body & otherBody)
     {
         float distance = calcDistance(*this, otherBody);
-        std::cout << "distance between edges: " << distance - otherBody.radius - this->radius << std::endl;
         if (distance - otherBody.radius - this->radius < 0)
         {
-            std::cout << "colliding" << std::endl;
             return true;
         }
         return false;

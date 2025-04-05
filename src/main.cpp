@@ -118,7 +118,7 @@ int main()
             if(sf::Mouse::isButtonPressed(sf::Mouse::Button::Right))
             {
                 gameIsRunning = true;
-                bodies.back().velocity = sf::Vector2f{arrow[1].position - arrow[0].position}*2.0f;
+                bodies.back().velocity = sf::Vector2f{arrow[1].position - arrow[0].position};
                 arrow.clear();
                 clock.restart();
             }
