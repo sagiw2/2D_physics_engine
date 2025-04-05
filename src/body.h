@@ -7,6 +7,8 @@
 
 const float G = 6.674*pow(10, -11)*pow(10, 15);
 
+const float PI = 3.14159265;
+
 struct Body
 {
     float radius;
@@ -28,6 +30,8 @@ struct Body
                 << " velocity x: " << b.velocity.x << " y: " << b.velocity.y 
                 << " acc x: " << b.acceleration.x << " y: " << b.acceleration.y;
     }
+
+    friend float calcDistance(Body &b1, Body &b2);
     
     void addAcceleration(sf::Vector2f force)
     {
@@ -44,20 +48,17 @@ struct Body
         this->position += this->velocity*deltaT - this->acceleration*static_cast<float>(deltaT*deltaT*0.5);
     }
     
-    // void collisionDetection(std::vector<Body> & bodies)
-    // {
-    //     for (auto &otherBody : bodies)
-    //     {
-    //         if (&otherBody != this)
-    //         {
-    //             float distance = calcDistance(*this, otherBody);
-    //             if (distance < otherBody.radius + this->radius)
-    //             {
-    //                 std::cout << "Coliding" << std::endl;
-    //             }
-    //         }
-    //     }
-    // }
+    bool collisionDetection(Body & otherBody)
+    {
+        float distance = calcDistance(*this, otherBody);
+        std::cout << "distance between edges: " << distance - otherBody.radius - this->radius << std::endl;
+        if (distance - otherBody.radius - this->radius < 0)
+        {
+            std::cout << "colliding" << std::endl;
+            return true;
+        }
+        return false;
+    }
 
     
     void update(std::vector<Body> &bodies, float deltaT)
@@ -68,24 +69,36 @@ struct Body
         {
             if (&otherBody != this)
             {
-                sf::Vector2f direction = otherBody.position - this->position;
-                float distance = std::hypot(direction.x, direction.y);
-                if (distance < otherBody.radius)
-                distance = otherBody.radius;
+                sf::Vector2f deltaPosition = otherBody.position - this->position;
+                float distance = std::hypot(deltaPosition.x, deltaPosition.y);
                 
-                if (distance > 0.01)
-                {
-                    float force = G*otherBody.mass*this->mass/pow(distance, 2);
-                    totalForce += (direction*force)/distance;
-                }
+                float force = G*otherBody.mass*this->mass/pow(distance, 2);
+                totalForce += (deltaPosition*force)/distance;
             }
         }
         addAcceleration(totalForce);
         addVelocity(deltaT);
         calcPosition(deltaT);
-        // collisionDetection(bodies);
     }
 };
+
+float dot(const sf::Vector2f& a, const sf::Vector2f& b)
+{
+    return a.x * b.x + a.y * b.y;
+}
+
+float magnitude2d(const sf::Vector2f& v)
+{
+    return std::hypot(v.x, v.y);
+}
+
+sf::Vector2f normalize(const sf::Vector2f& v)
+{
+    float length = std::hypot(v.x, v.y);
+    if (length != 0)
+        return v / length;
+    return sf::Vector2f(0, 0);
+}
 
 float calcDistance(Body &b1, Body &b2)
 {
@@ -95,33 +108,21 @@ float calcDistance(Body &b1, Body &b2)
 
 void resolveCollision(Body &b1, Body &b2)
 {
-    float distance = calcDistance(b1, b2);
-    float overlap = b1.radius + b2.radius - distance;
-
-    if (overlap > 0)
-    {
-        sf::Vector2f direction = b2.position - b1.position;
-        direction = direction/sqrt(direction.x*direction.x + direction.y*direction.y);
-
-        float padding = 1.0f;
-        b1.position += direction * padding * (overlap * (b2.mass / (b1.mass + b2.mass)));
-        b2.position -= direction * padding * (overlap * (b1.mass / (b1.mass + b2.mass)));
-
-        sf::Vector2f relativeVelocity = b2.velocity - b1.velocity;
-        
-        float velocityAlongNormal = relativeVelocity.x*direction.x + relativeVelocity.y*direction.y;
-        
-        if (velocityAlongNormal < 0)
-        {
-            float coff = 0.8f; // 1 is the coefficient for elastic collision
-            float impulse = -(1 + coff) * velocityAlongNormal;
-            impulse /= (1 / b1.mass + 1 / b2.mass);
-
-            sf::Vector2f impulseVec = direction * impulse;
-            b1.velocity -= impulseVec / b1.mass;
-            b2.velocity += impulseVec / b2.mass;
-
-        }
-    }
+    float collisionCoefficient = 0.9;
+    // fix position -> after fix if 2 balls were inside each other, they are now touching
+    sf::Vector2f deltaPosition = b2.position - b1.position;
+    sf::Vector2f direction = normalize(b2.position - b1.position);
+    float overlap = calcDistance(b1, b2) - (b1.radius + b2.radius);
+    b1.position += overlap*direction*b2.mass/(b1.mass + b2.mass);
+    b2.position += -overlap*direction*b1.mass/(b1.mass + b2.mass);
+    
+    // calculate new velocitys
+    sf::Vector2f preB1Velocity{b1.velocity};
+    deltaPosition = b1.position - b2.position;
+    sf::Vector2f scaledNoraml = (deltaPosition)/static_cast<float>(pow(magnitude2d(deltaPosition), 2));
+    b1.velocity -= collisionCoefficient*(2*b2.mass/(b1.mass + b2.mass))*dot(b1.velocity - b2.velocity, deltaPosition)*(scaledNoraml);
+    
+    deltaPosition = b2.position - b1.position;
+    scaledNoraml = (deltaPosition)/static_cast<float>(pow(magnitude2d(deltaPosition), 2));
+    b2.velocity -= collisionCoefficient*(2*b1.mass/(b1.mass + b2.mass))*dot(b2.velocity - preB1Velocity, deltaPosition)*(scaledNoraml);
 }
-
