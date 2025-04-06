@@ -1,4 +1,5 @@
 #include <SFML/Graphics.hpp>
+#include "viewHandler.h"
 #include "body.h"
 
 const float TIME_STEP = 1.0f / 60.0f;
@@ -72,10 +73,38 @@ sf::VertexArray createArrow(const sf::Vector2f& base, const sf::Vector2f& tip, f
     return arrow;
 }
 
+void createNewBody(sf::RenderWindow &window, bool &gameIsRunning, std::vector<sf::CircleShape> &shapes, sf::VertexArray &arrow, std::vector<Body> &bodies)
+{
+    gameIsRunning = false;
+    Body newBody(10, 10, window.mapPixelToCoords(sf::Mouse::getPosition(window)));
+    arrow = createArrow(newBody.position, window.mapPixelToCoords(sf::Mouse::getPosition(window)));
+    addShapesAndBodies(shapes, bodies, {newBody});
+}
+
+void unPauseAfterCreationOfNewBody(bool &gameIsRunning, std::vector<Body> &bodies, sf::VertexArray &arrow, sf::Clock &clock)
+{
+    gameIsRunning = true;
+    bodies.back().velocity = sf::Vector2f{arrow[1].position - arrow[0].position};
+    arrow.clear();
+    clock.restart();
+}
+
+void updateWindow(sf::RenderWindow &window, viewHandler &view, std::vector<sf::CircleShape> &shapes, sf::VertexArray &arrow)
+{
+    window.setView(view.getView());
+    window.clear();
+    for (auto shape : shapes)
+        window.draw(shape);
+    if (arrow.getVertexCount() != 0)
+        window.draw(arrow);
+    window.display();
+}
+
 int main()
 {
-    sf::RenderWindow window(sf::VideoMode(800, 600), "2D Planetary Physics");
-    sf::View view = window.getDefaultView();
+    sf::RenderWindow window(sf::VideoMode(1600, 1200), "2D Planetary Physics");
+    
+    viewHandler viewHandler(window.getDefaultView());
 
     srand(time(NULL));
 
@@ -98,32 +127,16 @@ int main()
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed)
                 window.close();
-            if (event.type == sf::Event::MouseWheelScrolled)
-            {
-                float zoomFactor = (event.mouseWheelScroll.delta > 0) ? 0.9f : 1.1f;
-                view.zoom(zoomFactor);
-            }
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) view.move(0, -10);
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) view.move(0, 10);
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) view.move(-10, 0);
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) view.move(10, 0);
+            if (event.type == sf::Event::MouseWheelScrolled) viewHandler.zoomView(event.mouseWheelScroll.delta);
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) viewHandler.viewMoveUp();
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) viewHandler.viewMoveDown();
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) viewHandler.viewMoveLeft();
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) viewHandler.viewMoveRight();
             if(event.type == sf::Event::MouseButtonPressed &&
                 event.mouseButton.button == sf::Mouse::Left)
             {
-                if (gameIsRunning)
-                {
-                    gameIsRunning = false;
-                    Body newBody(10, 10, window.mapPixelToCoords(sf::Mouse::getPosition(window)));
-                    arrow = createArrow(newBody.position, window.mapPixelToCoords(sf::Mouse::getPosition(window)));
-                    addShapesAndBodies(shapes, bodies, {newBody});
-                }
-                else
-                {
-                    gameIsRunning = true;
-                    bodies.back().velocity = sf::Vector2f{arrow[1].position - arrow[0].position};
-                    arrow.clear();
-                    clock.restart();
-                }
+                if (gameIsRunning) { createNewBody(window, gameIsRunning, shapes, arrow, bodies); }
+                else { unPauseAfterCreationOfNewBody(gameIsRunning, bodies, arrow, clock); }
             }
             if(event.type == sf::Event::MouseButtonPressed &&
                 event.mouseButton.button == sf::Mouse::Right)
@@ -155,13 +168,7 @@ int main()
             arrow = createArrow(bodies.back().position, window.mapPixelToCoords(sf::Mouse::getPosition(window)));
             updateShapes(bodies, shapes);
         }
-        window.setView(view);
-        window.clear();
-        for (auto shape : shapes)
-            window.draw(shape);
-        if (arrow.getVertexCount() != 0)
-            window.draw(arrow);
-        window.display();
+        updateWindow(window, viewHandler, shapes, arrow);
     }
 
     return 0;
