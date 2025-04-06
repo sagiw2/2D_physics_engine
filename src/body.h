@@ -31,6 +31,13 @@ struct Body
                 << " acc x: " << b.acceleration.x << " y: " << b.acceleration.y;
     }
 
+    friend bool operator==(Body const& lhs, Body const& rhs)
+    {
+        return lhs.radius == rhs.radius && lhs.mass == rhs.mass &&
+                lhs.position == rhs.position && lhs.velocity == rhs.velocity &&
+                lhs.acceleration == rhs.acceleration;
+    }
+
     friend float calcDistance(Body &b1, Body &b2);
     
     void addAcceleration(sf::Vector2f force)
@@ -124,7 +131,7 @@ void resolveCollision(Body &b1, Body &b2)
     b2.velocity -= collisionCoefficient*(2*b1.mass/(b1.mass + b2.mass))*dot(b2.velocity - preB1Velocity, deltaPosition)*(scaledNoraml);
 }
 
-Body* getClosestBody(sf::Vector2f &position, std::vector<Body> &bodies)
+Body* getClosestBody(const sf::Vector2f &position, std::vector<Body> &bodies)
 {
     float minDist{MAXFLOAT};
     Body* closest{nullptr};

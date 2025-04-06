@@ -7,7 +7,7 @@ const float TIME_STEP = 1.0f / 60.0f;
 void createShapeFromBody(sf::CircleShape &shape, Body &body)
 {
     shape.setRadius(body.radius);
-    shape.setPosition(body.position.x - body.radius, body.position.y - body.radius);
+    shape.setPosition(body.position.x, body.position.y);
     shape.setFillColor(sf::Color(rand() % 256, rand() % 256, rand() % 256));
 }
 
@@ -100,6 +100,48 @@ void updateWindow(sf::RenderWindow &window, viewHandler &view, std::vector<sf::C
     window.display();
 }
 
+sf::CircleShape* getClosestShape(const sf::Vector2f &position, std::vector<sf::CircleShape> &shapes)
+{
+    float minDist{MAXFLOAT};
+    sf::CircleShape* closest{nullptr};
+    for (auto &shape : shapes)
+    {
+        sf::Vector2f deltaPosition = shape.getPosition() - position;
+        float distance = std::hypot(deltaPosition.x, deltaPosition.y);
+        if (distance < minDist && distance < shape.getRadius())
+        {
+            minDist = distance;
+            closest = &shape;
+        }
+    }
+    return closest;
+}
+
+void removeBodyAndShape(sf::RenderWindow &window, std::vector<Body> &bodies, std::vector<sf::CircleShape> &shapes)
+{
+    sf::Vector2i mousePositionWorld = sf::Mouse::getPosition(window);
+    sf::Vector2f mousePositionWindow = window.mapPixelToCoords(mousePositionWorld);
+    if (auto closestBody = getClosestBody(mousePositionWindow, bodies))
+    {
+        std::cout << "Got closest body" << std::endl;
+        if (auto closestShape = getClosestShape(static_cast<sf::Vector2f>(mousePositionWorld), shapes))
+        {
+            std::cout << closestShape << std::endl;
+            auto it = std::find_if(shapes.begin(), shapes.end(), [&](sf::CircleShape& shape)
+            {
+                return &shape == closestShape;
+            });
+            if (it != shapes.end())
+            {
+                std::cout << "Got closest shape" << std::endl;
+                shapes.erase(it);
+            }
+
+            bodies.erase(std::remove(bodies.begin(), bodies.end(), *closestBody), bodies.end());
+        }
+    }
+}
+
 int main()
 {
     sf::RenderWindow window(sf::VideoMode(1600, 1200), "2D Planetary Physics");
@@ -114,6 +156,8 @@ int main()
     
     std::vector<Body> bodies;
     std::vector<sf::CircleShape> shapes;
+
+    std::unordered_map<Body, sf::CircleShape> entities;
 
     addShapesAndBodies(shapes, bodies, {body1, body2});
 
@@ -138,6 +182,11 @@ int main()
                 if (gameIsRunning) { createNewBody(window, gameIsRunning, shapes, arrow, bodies); }
                 else { unPauseAfterCreationOfNewBody(gameIsRunning, bodies, arrow, clock); }
             }
+            if(event.type == sf::Event::MouseButtonPressed &&
+                event.mouseButton.button == sf::Mouse::Middle)
+                {
+                    removeBodyAndShape(window, bodies, shapes);
+                }
             if(event.type == sf::Event::MouseButtonPressed &&
                 event.mouseButton.button == sf::Mouse::Right)
             {
