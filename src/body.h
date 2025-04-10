@@ -31,7 +31,7 @@ struct Body
                 << " acc x: " << b.acceleration.x << " y: " << b.acceleration.y;
     }
 
-    friend bool operator==(Body const& lhs, Body const& rhs)
+    friend bool operator==(const Body &lhs, const Body &rhs)
     {
         return lhs.radius == rhs.radius && lhs.mass == rhs.mass &&
                 lhs.position == rhs.position && lhs.velocity == rhs.velocity &&

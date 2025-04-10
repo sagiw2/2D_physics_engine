@@ -121,23 +121,15 @@ void removeBodyAndShape(sf::RenderWindow &window, std::vector<Body> &bodies, std
 {
     sf::Vector2i mousePositionWorld = sf::Mouse::getPosition(window);
     sf::Vector2f mousePositionWindow = window.mapPixelToCoords(mousePositionWorld);
-    if (auto closestBody = getClosestBody(mousePositionWindow, bodies))
+    if (Body* closestBody = getClosestBody(mousePositionWindow, bodies))
     {
-        std::cout << "Got closest body" << std::endl;
-        if (auto closestShape = getClosestShape(static_cast<sf::Vector2f>(mousePositionWorld), shapes))
+        auto it = std::find(bodies.begin(), bodies.end(), *closestBody);
+        if (it != bodies.end())
         {
-            std::cout << closestShape << std::endl;
-            auto it = std::find_if(shapes.begin(), shapes.end(), [&](sf::CircleShape& shape)
-            {
-                return &shape == closestShape;
-            });
-            if (it != shapes.end())
-            {
-                std::cout << "Got closest shape" << std::endl;
-                shapes.erase(it);
-            }
+            auto index = std::distance(bodies.begin(), it);
 
-            bodies.erase(std::remove(bodies.begin(), bodies.end(), *closestBody), bodies.end());
+            shapes.erase(shapes.begin() + index);
+            bodies.erase(it);
         }
     }
 }
@@ -156,8 +148,6 @@ int main()
     
     std::vector<Body> bodies;
     std::vector<sf::CircleShape> shapes;
-
-    std::unordered_map<Body, sf::CircleShape> entities;
 
     addShapesAndBodies(shapes, bodies, {body1, body2});
 
