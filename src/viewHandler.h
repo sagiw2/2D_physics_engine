@@ -2,11 +2,13 @@
 
 #include <SFML/Graphics.hpp>
 
-struct viewHandler
+class viewHandler
 {
+private:
     sf::View view;
     float moveViewDistance = 10.f;
 
+public:
     viewHandler(const sf::View &v): view(v) {}
 
     void viewMoveUp() { view.move(0, -moveViewDistance); }

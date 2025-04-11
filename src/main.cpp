@@ -6,8 +6,8 @@ const float TIME_STEP = 1.0f / 60.0f;
 
 void createShapeFromBody(sf::CircleShape &shape, Body &body)
 {
-    shape.setRadius(body.radius);
-    shape.setPosition(body.position.x - body.radius, body.position.y - body.radius);
+    shape.setRadius(body.getRadius());
+    shape.setPosition(body.getPosition().x, body.getPosition().y);
     shape.setFillColor(sf::Color(rand() % 256, rand() % 256, rand() % 256));
 }
 
@@ -40,7 +40,7 @@ void updatePhysics(std::vector<Body> & bodies, float deltaT)
 void updateShapes(std::vector<Body> &bodies, std::vector<sf::CircleShape> & shapes)
 {
     for (size_t i{0}; i < bodies.size(); ++i)
-        shapes[i].setPosition(bodies[i].position.x - bodies[i].radius, bodies[i].position.y - bodies[i].radius);
+        shapes[i].setPosition(bodies[i].getPosition().x - bodies[i].getRadius(), bodies[i].getPosition().y - bodies[i].getRadius());
 }
 
 sf::VertexArray createArrow(const sf::Vector2f& base, const sf::Vector2f& tip, float wingLength = 10.f, float wingAngleDeg = 30.f)
@@ -77,14 +77,14 @@ void createNewBody(sf::RenderWindow &window, bool &gameIsRunning, std::vector<sf
 {
     gameIsRunning = false;
     Body newBody(10, 10, window.mapPixelToCoords(sf::Mouse::getPosition(window)));
-    arrow = createArrow(newBody.position, window.mapPixelToCoords(sf::Mouse::getPosition(window)));
+    arrow = createArrow(newBody.getPosition(), window.mapPixelToCoords(sf::Mouse::getPosition(window)));
     addShapesAndBodies(shapes, bodies, {newBody});
 }
 
 void unPauseAfterCreationOfNewBody(bool &gameIsRunning, std::vector<Body> &bodies, sf::VertexArray &arrow, sf::Clock &clock)
 {
     gameIsRunning = true;
-    bodies.back().velocity = sf::Vector2f{arrow[1].position - arrow[0].position};
+    bodies.back().setVelocity(sf::Vector2f{arrow[1].position - arrow[0].position});
     arrow.clear();
     clock.restart();
 }
@@ -100,16 +100,59 @@ void updateWindow(sf::RenderWindow &window, viewHandler &view, std::vector<sf::C
     window.display();
 }
 
+sf::CircleShape* getClosestShape(const sf::Vector2f &position, std::vector<sf::CircleShape> &shapes)
+{
+    float minDist{MAXFLOAT};
+    sf::CircleShape* closest{nullptr};
+    for (auto &shape : shapes)
+    {
+        sf::Vector2f deltaPosition = shape.getPosition() - position;
+        float distance = std::hypot(deltaPosition.x, deltaPosition.y);
+        if (distance < minDist && distance < shape.getRadius())
+        {
+            minDist = distance;
+            closest = &shape;
+        }
+    }
+    return closest;
+}
+
+void removeBodyAndShape(sf::RenderWindow &window, std::vector<Body> &bodies, std::vector<sf::CircleShape> &shapes)
+{
+    sf::Vector2i mousePositionWorld = sf::Mouse::getPosition(window);
+    sf::Vector2f mousePositionWindow = window.mapPixelToCoords(mousePositionWorld);
+    if (Body* closestBody = getClosestBody(mousePositionWindow, bodies))
+    {
+        auto it = std::find(bodies.begin(), bodies.end(), *closestBody);
+        if (it != bodies.end())
+        {
+            auto index = std::distance(bodies.begin(), it);
+
+            shapes.erase(shapes.begin() + index);
+            bodies.erase(it);
+        }
+    }
+}
+
+void updateCreatedShape(sf::RenderWindow &window, std::vector<Body> &bodies, std::vector<sf::CircleShape> &shapes, sf::VertexArray &arrow)
+{
+    bodies.back().setRadius(bodies.back().getRadius() + 0.05);
+    bodies.back().setMass(bodies.back().getRadius());
+    shapes.back().setRadius(shapes.back().getRadius() + 0.05);
+    arrow = createArrow(bodies.back().getPosition(), window.mapPixelToCoords(sf::Mouse::getPosition(window)));
+    updateShapes(bodies, shapes);
+}
+
 int main()
 {
-    sf::RenderWindow window(sf::VideoMode(1600, 1200), "2D Planetary Physics");
+    sf::RenderWindow window(sf::VideoMode(800, 600), "2D Planetary Physics");
     
     viewHandler viewHandler(window.getDefaultView());
 
     srand(time(NULL));
 
     Body body1(100, 100, {400.0, 300.0});
-    Body body2(10, 1, {10.0, 50.0}, {0.0, 0.0});
+    Body body2(10, 10, {10.0, 50.0}, {0.0, 0.0});
     sf::VertexArray arrow;
     
     std::vector<Body> bodies;
@@ -124,7 +167,8 @@ int main()
     while (window.isOpen())
     {
         sf::Event event;
-        while (window.pollEvent(event)) {
+        while (window.pollEvent(event))
+        {
             if (event.type == sf::Event::Closed)
                 window.close();
             if (event.type == sf::Event::MouseWheelScrolled) viewHandler.zoomView(event.mouseWheelScroll.delta);
@@ -138,6 +182,11 @@ int main()
                 if (gameIsRunning) { createNewBody(window, gameIsRunning, shapes, arrow, bodies); }
                 else { unPauseAfterCreationOfNewBody(gameIsRunning, bodies, arrow, clock); }
             }
+            if(event.type == sf::Event::MouseButtonPressed &&
+                event.mouseButton.button == sf::Mouse::Middle)
+                    removeBodyAndShape(window, bodies, shapes);
+
+            // for debug
             if(event.type == sf::Event::MouseButtonPressed &&
                 event.mouseButton.button == sf::Mouse::Right)
             {
@@ -162,12 +211,8 @@ int main()
             }
         }
         else
-        {
-            bodies.back().radius += 0.05;
-            shapes.back().setRadius(shapes.back().getRadius() + 0.05);
-            arrow = createArrow(bodies.back().position, window.mapPixelToCoords(sf::Mouse::getPosition(window)));
-            updateShapes(bodies, shapes);
-        }
+            updateCreatedShape(window, bodies, shapes, arrow);
+
         updateWindow(window, viewHandler, shapes, arrow);
     }
 
