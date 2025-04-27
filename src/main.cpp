@@ -1,8 +1,12 @@
 #include <SFML/Graphics.hpp>
 #include "viewHandler.h"
 #include "body.h"
+#include "timer.h"
+
+#include "quadTree.h"
 
 const float TIME_STEP = 1.0f / 60.0f;
+int counter = 0;
 
 void createShapeFromBody(sf::CircleShape &shape, Body &body)
 {
@@ -13,6 +17,7 @@ void createShapeFromBody(sf::CircleShape &shape, Body &body)
 
 void addShapesAndBodies(std::vector<sf::CircleShape> &shapes, std::vector<Body> &bodies, const std::vector<Body> &newBodies)
 {
+    // PROFILE_SCOPE("add Shapes and Bodies");
     for (Body b : newBodies)
     {
         bodies.emplace_back(b);
@@ -23,10 +28,11 @@ void addShapesAndBodies(std::vector<sf::CircleShape> &shapes, std::vector<Body> 
 
 void updatePhysics(std::vector<Body> & bodies, float deltaT)
 {
+    // PROFILE_SCOPE("Update Physics");
     for (size_t i = 0; i < bodies.size(); ++i)
     {
         bodies[i].update(bodies, deltaT);
-        
+
         for (size_t j = i + 1; j < bodies.size(); ++j)
         {
             if (bodies[i].collisionDetection(bodies[j]))
@@ -39,6 +45,7 @@ void updatePhysics(std::vector<Body> & bodies, float deltaT)
 
 void updateShapes(std::vector<Body> &bodies, std::vector<sf::CircleShape> & shapes)
 {
+    // PROFILE_SCOPE("Update shapes");
     for (size_t i{0}; i < bodies.size(); ++i)
         shapes[i].setPosition(bodies[i].getPosition().x - bodies[i].getRadius(), bodies[i].getPosition().y - bodies[i].getRadius());
 }
@@ -73,6 +80,14 @@ sf::VertexArray createArrow(const sf::Vector2f& base, const sf::Vector2f& tip, f
     return arrow;
 }
 
+void nonUserCreateNewBody(sf::RenderWindow &window, std::vector<sf::CircleShape> &shapes, sf::VertexArray &arrow, std::vector<Body> &bodies)
+{
+    // PROFILE_SCOPE("non User Create New Body");
+    Body newBody(10, 10, window.mapPixelToCoords(sf::Mouse::getPosition(window)));
+    arrow = createArrow(newBody.getPosition(), window.mapPixelToCoords(sf::Mouse::getPosition(window)));
+    addShapesAndBodies(shapes, bodies, {newBody});
+}
+
 void createNewBody(sf::RenderWindow &window, bool &gameIsRunning, std::vector<sf::CircleShape> &shapes, sf::VertexArray &arrow, std::vector<Body> &bodies)
 {
     gameIsRunning = false;
@@ -89,12 +104,14 @@ void unPauseAfterCreationOfNewBody(bool &gameIsRunning, std::vector<Body> &bodie
     clock.restart();
 }
 
-void updateWindow(sf::RenderWindow &window, viewHandler &view, std::vector<sf::CircleShape> &shapes, sf::VertexArray &arrow)
+void updateWindow(sf::RenderWindow &window, viewHandler &view, std::vector<sf::CircleShape> &shapes, std::vector<sf::RectangleShape> &quads, sf::VertexArray &arrow)
 {
     window.setView(view.getView());
     window.clear();
-    for (auto shape : shapes)
+    for (auto &shape : shapes)
         window.draw(shape);
+    for (auto &quad : quads)
+        window.draw(quad);
     if (arrow.getVertexCount() != 0)
         window.draw(arrow);
     window.display();
@@ -102,6 +119,7 @@ void updateWindow(sf::RenderWindow &window, viewHandler &view, std::vector<sf::C
 
 sf::CircleShape* getClosestShape(const sf::Vector2f &position, std::vector<sf::CircleShape> &shapes)
 {
+    // PROFILE_SCOPE("Get Closest Shape");
     float minDist{MAXFLOAT};
     sf::CircleShape* closest{nullptr};
     for (auto &shape : shapes)
@@ -143,20 +161,111 @@ void updateCreatedShape(sf::RenderWindow &window, std::vector<Body> &bodies, std
     updateShapes(bodies, shapes);
 }
 
+// int main()
+// {
+//     sf::RenderWindow window(sf::VideoMode(800, 600), "2D Planetary Physics");
+
+//     viewHandler viewHandler(window.getDefaultView());
+
+//     srand(time(NULL));
+
+
+//     Body body1(100, 100, {400.0, 300.0});
+//     Body body2(10, 10, {10.0, 50.0}, {0.0, 0.0});
+//     counter += 2;
+//     sf::VertexArray arrow;
+
+//     std::vector<Body> bodies;
+//     std::vector<sf::CircleShape> shapes;
+//     bodies.reserve(1000);
+//     shapes.reserve(1000);
+
+//     addShapesAndBodies(shapes, bodies, {body1, body2});
+
+//     sf::Clock clock;
+//     float accumulatedTime = 0.0f;
+//     bool gameIsRunning{true};
+
+//     while (window.isOpen())
+//     {
+//         sf::Event event;
+//         while (window.pollEvent(event))
+//         {
+//             if (event.type == sf::Event::Closed)
+//                 window.close();
+//             if (event.type == sf::Event::MouseWheelScrolled) viewHandler.zoomView(event.mouseWheelScroll.delta);
+//             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) viewHandler.viewMoveUp();
+//             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) viewHandler.viewMoveDown();
+//             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) viewHandler.viewMoveLeft();
+//             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) viewHandler.viewMoveRight();
+//             if(event.type == sf::Event::MouseButtonPressed &&
+//                 event.mouseButton.button == sf::Mouse::Left)
+//             {
+//                 if (gameIsRunning)
+//                     createNewBody(window, gameIsRunning, shapes, arrow, bodies);
+//                 else
+//                 {
+//                     unPauseAfterCreationOfNewBody(gameIsRunning, bodies, arrow, clock);
+//                 }
+//             }
+//             if(event.type == sf::Event::MouseButtonPressed &&
+//                 event.mouseButton.button == sf::Mouse::Middle)
+//                     removeBodyAndShape(window, bodies, shapes);
+
+//             // for debug
+//             // if(event.type == sf::Event::MouseButtonPressed &&
+//             //     event.mouseButton.button == sf::Mouse::Right)
+//             // {
+//             //     sf::Vector2f mousePosition = window.mapPixelToCoords(sf::Mouse::getPosition(window));
+//             //     if (auto closestBody = getClosestBody(mousePosition, bodies))
+//             //     {
+//             //         std::cout << *closestBody << std::endl;
+//             //     }
+//             // }
+//         }
+
+//         if (gameIsRunning)
+//         {
+//             // need to read on frame independant calculation
+//             float deltaTime = clock.restart().asSeconds();
+//             accumulatedTime += deltaTime;
+
+//             while (accumulatedTime >= TIME_STEP)
+//             {
+//                 nonUserCreateNewBody(window, shapes, arrow, bodies);
+//                 // std::cout << "Number of bodies: " << ++counter << std::endl;
+//                 updatePhysics(bodies, TIME_STEP);
+//                 updateShapes(bodies, shapes);
+//                 accumulatedTime -= TIME_STEP;
+//             }
+//         }
+//         else
+//             updateCreatedShape(window, bodies, shapes, arrow);
+
+//         updateWindow(window, viewHandler, shapes, arrow);
+//     }
+
+//     return 0;
+// }
+
 int main()
 {
     sf::RenderWindow window(sf::VideoMode(800, 600), "2D Planetary Physics");
-    
+
     viewHandler viewHandler(window.getDefaultView());
 
     srand(time(NULL));
 
-    Body body1(100, 100, {400.0, 300.0});
+
+    Body body1(100, 100, {410.0, 300.0});
     Body body2(10, 10, {10.0, 50.0}, {0.0, 0.0});
     sf::VertexArray arrow;
-    
+
     std::vector<Body> bodies;
     std::vector<sf::CircleShape> shapes;
+    std::vector<sf::RectangleShape> quads;
+    bodies.reserve(1000);
+    shapes.reserve(1000);
 
     addShapesAndBodies(shapes, bodies, {body1, body2});
 
@@ -179,33 +288,37 @@ int main()
             if(event.type == sf::Event::MouseButtonPressed &&
                 event.mouseButton.button == sf::Mouse::Left)
             {
-                if (gameIsRunning) { createNewBody(window, gameIsRunning, shapes, arrow, bodies); }
-                else { unPauseAfterCreationOfNewBody(gameIsRunning, bodies, arrow, clock); }
+                if (gameIsRunning)
+                    createNewBody(window, gameIsRunning, shapes, arrow, bodies);
+                else
+                {
+                    unPauseAfterCreationOfNewBody(gameIsRunning, bodies, arrow, clock);
+                }
             }
             if(event.type == sf::Event::MouseButtonPressed &&
                 event.mouseButton.button == sf::Mouse::Middle)
                     removeBodyAndShape(window, bodies, shapes);
-
-            // for debug
-            if(event.type == sf::Event::MouseButtonPressed &&
-                event.mouseButton.button == sf::Mouse::Right)
-            {
-                sf::Vector2f mousePosition = window.mapPixelToCoords(sf::Mouse::getPosition(window));
-                if (auto closestBody = getClosestBody(mousePosition, bodies))
-                {
-                    std::cout << *closestBody << std::endl;
-                }
-            }
         }
 
         if (gameIsRunning)
         {
+            // need to read on frame independant calculation
             float deltaTime = clock.restart().asSeconds();
             accumulatedTime += deltaTime;
-        
+
             while (accumulatedTime >= TIME_STEP)
             {
-                updatePhysics(bodies, TIME_STEP);
+                QuadTree qTree{Rect{viewHandler.getView().getCenter().x, viewHandler.getView().getCenter().y, viewHandler.getView().getSize().x, viewHandler.getView().getSize().y}};
+                for (auto& body : bodies)
+                    qTree.insert(body);
+                for (auto& body : bodies)
+                {
+                    sf::Vector2f totalForces = qTree.calculateForces(body, TIME_STEP);
+                    body.update(totalForces, deltaTime);
+                }
+                // updatePhysics(bodies, TIME_STEP);
+                quads.clear();
+                quads = qTree.show();
                 updateShapes(bodies, shapes);
                 accumulatedTime -= TIME_STEP;
             }
@@ -213,7 +326,7 @@ int main()
         else
             updateCreatedShape(window, bodies, shapes, arrow);
 
-        updateWindow(window, viewHandler, shapes, arrow);
+        updateWindow(window, viewHandler, shapes, quads, arrow);
     }
 
     return 0;
